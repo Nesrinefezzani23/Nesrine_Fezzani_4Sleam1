@@ -7,7 +7,6 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
         DOCKER_IMAGE_NAME = 'user2312/student-management'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
-        SONAR_HOST_URL = "http://localhost:9000"
         KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
@@ -24,20 +23,12 @@ pipeline {
             steps {
                 echo '=== Building with Maven ==='
                 sh 'mvn clean compile'
-                sh 'mvn test jacoco:report'
+                sh 'mvn test'
                 sh 'mvn package -DskipTests=true'
             }
             post {
                 always {
                     junit '**/target/surefire-reports/*.xml'
-                    publishHTML(target: [
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'target/site/jacoco',
-                        reportFiles: 'index.html',
-                        reportName: 'JaCoCo Coverage Report'
-                    ])
                 }
             }
         }
@@ -71,13 +62,8 @@ pipeline {
                 script {
                     echo '=== Deploying to Kubernetes ==='
                     sh """
-                        # Mettre à jour l'image du déploiement
                         kubectl set image deployment/spring-app spring-app=${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} -n devops
-
-                        # Attendre que le rollout soit terminé
                         kubectl rollout status deployment/spring-app -n devops --timeout=5m
-
-                        # Afficher les Pods
                         kubectl get pods -n devops
                     """
                 }
@@ -89,17 +75,11 @@ pipeline {
                 script {
                     echo '=== Verifying MySQL and Spring Boot Deployment ==='
                     sh """
-                        # Vérifier que MySQL est actif
                         kubectl get pods -l app=mysql -n devops
-
-                        # Vérifier que Spring Boot est actif
                         kubectl get pods -l app=spring-app -n devops
-
-                        # Afficher tous les services
                         kubectl get svc -n devops
-
-                        # Afficher l'URL d'accès
-                        echo "Application accessible via: minikube service spring-service -n devops --url"
+                        echo "=== Application URL ==="
+                        echo "Run: minikube service spring-service -n devops --url"
                     """
                 }
             }
