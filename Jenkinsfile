@@ -4,7 +4,7 @@ pipeline {
     environment {
         M2_HOME = "/usr/share/maven"
         PATH = "${env.M2_HOME}/bin:${env.PATH}"
-        DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
+        DOCKER_HUB_CREDENTIALS = 'docker-hub-credentials'
         DOCKER_IMAGE_NAME = 'user2312/student-management'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
         KUBECONFIG = "/var/lib/jenkins/.kube/config"
