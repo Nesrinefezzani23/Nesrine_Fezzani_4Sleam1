@@ -7,7 +7,7 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = 'docker-hub-credentials'
         DOCKER_IMAGE_NAME = 'user2312/student-management'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
-        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+        SONAR_HOST_URL = "http://host.docker.internal:9000"
     }
 
     stages {
@@ -23,12 +23,31 @@ pipeline {
             steps {
                 echo '=== Building with Maven ==='
                 sh 'mvn clean compile'
-                sh 'mvn test'
+                sh 'mvn test jacoco:report'
                 sh 'mvn package -DskipTests=true'
             }
             post {
                 always {
                     junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    echo '=== Running SonarQube Analysis ==='
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                        sh """
+                            mvn sonar:sonar \
+                              -Dsonar.projectKey=student-management \
+                              -Dsonar.projectName='Student Management' \
+                              -Dsonar.host.url=${SONAR_HOST_URL} \
+                              -Dsonar.login=\${SONAR_TOKEN} \
+                              -Dsonar.java.binaries=target/classes \
+                              -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                        """
+                    }
                 }
             }
         }
@@ -57,34 +76,6 @@ pipeline {
             }
         }
 
-        stage('Kubernetes Deploy') {
-            steps {
-                script {
-                    echo '=== Deploying to Kubernetes ==='
-                    sh """
-                        kubectl set image deployment/spring-app spring-app=${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} -n devops
-                        kubectl rollout status deployment/spring-app -n devops --timeout=5m
-                        kubectl get pods -n devops
-                    """
-                }
-            }
-        }
-
-        stage('Deploy MySQL & Spring Boot on K8s') {
-            steps {
-                script {
-                    echo '=== Verifying MySQL and Spring Boot Deployment ==='
-                    sh """
-                        kubectl get pods -l app=mysql -n devops
-                        kubectl get pods -l app=spring-app -n devops
-                        kubectl get svc -n devops
-                        echo "=== Application URL ==="
-                        echo "Run: minikube service spring-service -n devops --url"
-                    """
-                }
-            }
-        }
-
     }
 
     post {
@@ -93,7 +84,7 @@ pipeline {
             archiveArtifacts artifacts: 'target/*.jar', fingerprint: true, allowEmptyArchive: true
         }
         success {
-            echo '✅ Build succeeded and deployed to Kubernetes!'
+            echo '✅ Build succeeded with SonarQube analysis and Docker push!'
         }
         failure {
             echo '❌ Build failed!'
