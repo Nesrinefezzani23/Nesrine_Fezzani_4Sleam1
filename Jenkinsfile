@@ -7,7 +7,7 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = 'docker-hub-credentials'
         DOCKER_IMAGE_NAME = 'user2312/student-management'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
-        SONAR_HOST_URL = "http://host.docker.internal:9000"
+        SONAR_HOST_URL = "http://localhost:9000"
     }
 
     stages {
